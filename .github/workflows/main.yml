@@ -1,76 +1,46 @@
-name: TiltTalk Android Build
+name: Android CI
 
 on:
   push:
-    branches: [main, master]
   pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: tilttalk-android-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
-    name: Build and Test TiltTalk
+    name: Build debug APK and run unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+          java-version: "17"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Verify project files
-        run: |
-          if [ ! -f "./gradlew" ]; then
-            echo "ERROR: Gradle wrapper not found."
-            echo "Upload a complete Android Studio project."
-            exit 1
-          fi
-
-          if [ ! -f "./settings.gradle.kts" ] && \
-             [ ! -f "./settings.gradle" ]; then
-            echo "ERROR: Gradle settings file not found."
-            exit 1
-          fi
-
-          if [ ! -f "./app/build.gradle.kts" ] && \
-             [ ! -f "./app/build.gradle" ]; then
-            echo "ERROR: Android app module not found."
-            exit 1
-          fi
-
-          chmod +x ./gradlew
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest
+        run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
 
-      - name: Upload TiltTalk APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: TiltTalk-Android-APK
+          name: tilttalk-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 14
-
-      - name: Report build success
-        if: success()
-        run: echo "TiltTalk APK built and uploaded successfully."
